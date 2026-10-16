@@ -8,6 +8,7 @@ const navLinks = [
   { href: "/athlete/deals", label: "Find Deals" },
   { href: "/business/launch", label: "Get Customers" },
   { href: "/campaigns", label: "Packages" },
+  { href: "/messages", label: "Messages" },
   { href: "/parent", label: "Parents" },
   { href: "/legal", label: "Legal" },
 ];

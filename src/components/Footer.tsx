@@ -13,6 +13,7 @@ const footerLinks = {
     { href: "/campaigns", label: "Outcome Packages" },
   ],
   Platform: [
+    { href: "/messages", label: "Messages" },
     { href: "/parent", label: "Parent Portal" },
     { href: "/legal", label: "State Rules" },
     { href: "/#how-it-works", label: "How It Works" },
