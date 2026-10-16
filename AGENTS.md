@@ -1,3 +1,7 @@
+# Shared continuation context
+
+Read `PROJECT_STATUS.md` first for current progress, branches and next steps. GitHub is shared context; older machine paths and dated status claims require verification.
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
