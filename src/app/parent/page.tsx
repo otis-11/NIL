@@ -11,114 +11,51 @@ import {
   XCircle,
   Clock,
   AlertTriangle,
-  User,
   FileText,
-  DollarSign,
   Lock,
-  ArrowRight,
   ChevronDown,
   ChevronUp,
+  TrendingUp,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  getParentDashboardData,
+  approveParentApproval,
+  declineParentApproval,
+  type ParentApproval,
+} from "@/lib/parent";
 
-type RiskLevel = "low" | "medium" | "high";
-
-const pendingApprovals: {
-  id: string;
-  athleteName: string;
-  businessName: string;
-  campaignType: string;
-  amount: number;
-  description: string;
-  createdAt: string;
-  deliverables: string[];
-  contractSafe: boolean;
-  stateCompliant: boolean;
-  riskScore: RiskLevel;
-  riskFlags: string[];
-}[] = [
-  {
-    id: "pa-1",
-    athleteName: "Aiden Brooks",
-    businessName: "Riverside Chiropractic",
-    campaignType: "Product Endorsement",
-    amount: 500,
-    description:
-      "Testimonial video and social media endorsement for the clinic's sports recovery program.",
-    createdAt: "2026-03-20",
-    deliverables: [
-      "1 testimonial video (60-90 seconds)",
-      "2 social media posts",
-      "3-month usage rights",
-    ],
-    contractSafe: true,
-    stateCompliant: true,
-    riskScore: "low",
-    riskFlags: [],
-  },
-  {
-    id: "pa-2",
-    athleteName: "Aiden Brooks",
-    businessName: "Victory Sports Nutrition",
-    campaignType: "Product Review",
-    amount: 250,
-    description:
-      "Unboxing and review of protein supplement line on social media.",
-    createdAt: "2026-03-22",
-    deliverables: [
-      "1 unboxing/review video",
-      "1 social post with product tag",
-    ],
-    contractSafe: true,
-    stateCompliant: true,
-    riskScore: "medium",
-    riskFlags: ["Supplement product — verify claims are appropriate"],
-  },
-];
+// Use Aiden Brooks (ath-3) as the demo minor athlete
+const dashboardData = getParentDashboardData("ath-3", "parent@brooks.com");
 
 const milestones = [
   { label: "Profile Created", date: "2026-01-10", done: true },
   { label: "First Deal Approved", date: "2026-02-15", done: true },
-  { label: "$500 Total Earned", date: "2026-03-05", done: true },
-  { label: "5 Deals Completed", date: null, done: false },
-  { label: "$2,000 Total Earned", date: null, done: false },
-];
-
-const dealHistory = [
-  {
-    id: "ph-1",
-    athleteName: "Aiden Brooks",
-    businessName: "Riverside Chiropractic",
-    amount: 300,
-    status: "completed" as const,
-    date: "2026-02-15",
-    parentApproved: true,
-  },
-  {
-    id: "ph-2",
-    athleteName: "Aiden Brooks",
-    businessName: "Ace Hardware Riverside",
-    amount: 150,
-    status: "declined" as const,
-    date: "2026-01-28",
-    parentApproved: false,
-    declineReason: "Conflict with school schedule",
-  },
+  { label: `$${dashboardData.totalEarnings} Total Earned`, date: "2026-03-05", done: dashboardData.totalEarnings >= 500 },
+  { label: "5 Deals Completed", date: null, done: dashboardData.completedDeals >= 5 },
+  { label: "$2,000 Total Earned", date: null, done: dashboardData.totalEarnings >= 2000 },
 ];
 
 export default function ParentPortal() {
   const [expandedApproval, setExpandedApproval] = useState<string | null>(null);
+  const [localApprovals, setLocalApprovals] = useState<ParentApproval[]>(dashboardData.pendingApprovals);
   const [approvedDeals, setApprovedDeals] = useState<string[]>([]);
   const [declinedDeals, setDeclinedDeals] = useState<string[]>([]);
 
   const handleApprove = (id: string) => {
     setApprovedDeals((prev) => [...prev, id]);
     setDeclinedDeals((prev) => prev.filter((d) => d !== id));
+    setLocalApprovals((prev) =>
+      prev.map((a) => (a.id === id ? approveParentApproval(a) : a))
+    );
   };
 
   const handleDecline = (id: string) => {
     setDeclinedDeals((prev) => [...prev, id]);
     setApprovedDeals((prev) => prev.filter((d) => d !== id));
+    setLocalApprovals((prev) =>
+      prev.map((a) => (a.id === id ? declineParentApproval(a, "Parent declined") : a))
+    );
   };
 
   return (
@@ -220,12 +157,12 @@ export default function ParentPortal() {
             <div className="mb-4 flex items-center gap-2">
               <Bell className="h-5 w-5 text-amber-500" />
               <h2 className="text-lg font-bold">
-                Pending Approvals ({pendingApprovals.length})
+                Pending Approvals ({localApprovals.length})
               </h2>
             </div>
 
             <div className="space-y-4">
-              {pendingApprovals.map((deal) => {
+              {localApprovals.map((deal) => {
                 const isApproved = approvedDeals.includes(deal.id);
                 const isDeclined = declinedDeals.includes(deal.id);
                 const isExpanded = expandedApproval === deal.id;
@@ -299,17 +236,17 @@ export default function ParentPortal() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {deal.riskScore === "low" && (
+                        {deal.riskLevel === "low" && (
                           <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
                             Low Risk
                           </span>
                         )}
-                        {deal.riskScore === "medium" && (
+                        {deal.riskLevel === "medium" && (
                           <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
                             Medium Risk
                           </span>
                         )}
-                        {deal.riskScore === "high" && (
+                        {deal.riskLevel === "high" && (
                           <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
                             High Risk
                           </span>
@@ -337,7 +274,7 @@ export default function ParentPortal() {
                               Deliverables
                             </div>
                             <ul className="mt-2 space-y-1">
-                              {deal.deliverables.map((d) => (
+                              {deal.deliverables.map((d: string) => (
                                 <li
                                   key={d}
                                   className="flex items-center gap-1.5 text-sm"
@@ -431,52 +368,103 @@ export default function ParentPortal() {
           {/* Deal History */}
           <div className="mb-8">
             <h2 className="mb-4 text-lg font-bold">Deal History</h2>
-            <div className="space-y-3">
-              {dealHistory.map((deal) => (
-                <div
-                  key={deal.id}
-                  className="flex items-center justify-between rounded-xl border border-border bg-white p-4"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                        deal.status === "completed"
-                          ? "bg-emerald-100"
-                          : "bg-red-100"
-                      }`}
-                    >
-                      {deal.status === "completed" ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-red-600" />
-                      )}
+            {dashboardData.approvalHistory.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border bg-white p-8 text-center">
+                <p className="text-muted">No deal history yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {dashboardData.approvalHistory.map((deal) => (
+                  <div
+                    key={deal.id}
+                    className="flex items-center justify-between rounded-xl border border-border bg-white p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                          deal.status === "approved"
+                            ? "bg-emerald-100"
+                            : "bg-red-100"
+                        }`}
+                      >
+                        {deal.status === "approved" ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-600" />
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold">
+                          {deal.businessName}
+                        </h4>
+                        <p className="text-xs text-muted">
+                          {deal.respondedAt ? formatDate(deal.respondedAt) : formatDate(deal.createdAt)}
+                          {deal.declineReason && ` — ${deal.declineReason}`}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-semibold">
-                        {deal.businessName}
-                      </h4>
-                      <p className="text-xs text-muted">
-                        {formatDate(deal.date)}
-                        {deal.declineReason && ` — ${deal.declineReason}`}
-                      </p>
+                    <div className="text-right">
+                      <div className="text-sm font-bold">
+                        {formatCurrency(deal.amount)}
+                      </div>
+                      <div
+                        className={`text-xs font-medium ${
+                          deal.status === "approved"
+                            ? "text-emerald-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {deal.status === "approved" ? "Parent Approved" : "Parent Declined"}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold">
-                      {formatCurrency(deal.amount)}
-                    </div>
-                    <div
-                      className={`text-xs font-medium ${
-                        deal.status === "completed"
-                          ? "text-emerald-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {deal.parentApproved ? "Parent Approved" : "Parent Declined"}
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Parent Notifications */}
+          {dashboardData.notifications.length > 0 && (
+            <div className="mb-8">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">
+                <Bell className="h-5 w-5 text-brand" />
+                Recent Notifications
+              </h2>
+              <div className="space-y-2">
+                {dashboardData.notifications.slice(0, 5).map((notif) => (
+                  <div
+                    key={notif.id}
+                    className={`rounded-xl border p-4 ${notif.read ? "border-border bg-white" : "border-brand/20 bg-brand/5"}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="text-sm font-semibold">{notif.title}</h4>
+                        <p className="mt-0.5 text-xs text-muted">{notif.body}</p>
+                      </div>
+                      <span className="text-xs text-muted">{formatDate(notif.createdAt)}</span>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Athlete Stats Summary */}
+          <div className="mb-8 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-border bg-white p-4 text-center">
+              <TrendingUp className="mx-auto h-5 w-5 text-emerald-600" />
+              <div className="mt-2 text-2xl font-extrabold text-emerald-600">{formatCurrency(dashboardData.totalEarnings)}</div>
+              <div className="text-xs text-muted">Total Earnings</div>
+            </div>
+            <div className="rounded-xl border border-border bg-white p-4 text-center">
+              <CheckCircle2 className="mx-auto h-5 w-5 text-blue-600" />
+              <div className="mt-2 text-2xl font-extrabold text-blue-600">{dashboardData.completedDeals}</div>
+              <div className="text-xs text-muted">Completed Deals</div>
+            </div>
+            <div className="rounded-xl border border-border bg-white p-4 text-center">
+              <Clock className="mx-auto h-5 w-5 text-amber-600" />
+              <div className="mt-2 text-2xl font-extrabold text-amber-600">{dashboardData.activeDeals}</div>
+              <div className="text-xs text-muted">Active Deals</div>
             </div>
           </div>
 

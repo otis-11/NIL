@@ -39,14 +39,26 @@ import {
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { getMatchingOpportunities } from "@/lib/matching";
 import { getMarketplaceStats, getFirstDealProgress } from "@/lib/activity";
+import {
+  getContractsForAthlete,
+  getEscrowStatusLabel,
+  getEscrowStatusColor,
+  getContractStatusLabel,
+  getContractStatusColor,
+} from "@/lib/contracts";
+import { getThreadsForAthlete, getUnreadCount } from "@/lib/messaging";
 
 const athlete = athletes[0]; // Maya Chen as demo
 const athleteDeals = deals.filter((d) => d.athleteId === athlete.id);
 const athleteOutreach = outreachMessages.filter((m) => m.athleteId === athlete.id);
+const athleteContracts = getContractsForAthlete(athlete.id);
+const athleteThreads = getThreadsForAthlete(athlete.id);
+const unreadMessages = getUnreadCount(athleteThreads);
 
 const tabs = [
   { id: "overview", label: "Overview", icon: BarChart3 },
   { id: "deals", label: "My Deals", icon: FileText },
+  { id: "contracts", label: "Contracts", icon: Trophy },
   { id: "mediakit", label: "Media Kit", icon: Share2 },
   { id: "guide", label: "First Deal Guide", icon: Sparkles },
 ];
@@ -94,6 +106,18 @@ export default function AthleteDashboard() {
                 </div>
               </div>
               <div className="flex gap-3">
+                <Link
+                  href="/messages"
+                  className="relative flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-surface"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Messages
+                  {unreadMessages > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">
+                      {unreadMessages}
+                    </span>
+                  )}
+                </Link>
                 <Link
                   href="/campaigns"
                   className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-surface"
@@ -399,6 +423,111 @@ export default function AthleteDashboard() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Contracts Tab */}
+          {activeTab === "contracts" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">Contracts & Escrow</h2>
+                <span className="text-sm text-muted">{athleteContracts.length} contract(s)</span>
+              </div>
+
+              {athleteContracts.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-white p-8 text-center">
+                  <p className="text-muted">No contracts yet. Complete a deal to see contracts here.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {athleteContracts.map((contract) => (
+                    <div key={contract.id} className="rounded-2xl border border-border bg-white">
+                      <div className="p-5">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-bold">{contract.businessName}</h3>
+                            <p className="text-sm text-muted">{getCampaignTypeLabel(contract.campaignType)}</p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${getContractStatusColor(contract.status)}`}>
+                              {getContractStatusLabel(contract.status)}
+                            </span>
+                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${getEscrowStatusColor(contract.escrow.status)}`}>
+                              {getEscrowStatusLabel(contract.escrow.status)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Financial Breakdown */}
+                        <div className="mt-4 grid grid-cols-3 gap-3">
+                          <div className="rounded-lg bg-surface p-3 text-center">
+                            <div className="text-lg font-bold">{formatCurrency(contract.amount)}</div>
+                            <div className="text-xs text-muted">Total Value</div>
+                          </div>
+                          <div className="rounded-lg bg-surface p-3 text-center">
+                            <div className="text-lg font-bold text-muted">{formatCurrency(contract.platformFee)}</div>
+                            <div className="text-xs text-muted">Platform Fee (10%)</div>
+                          </div>
+                          <div className="rounded-lg bg-surface p-3 text-center">
+                            <div className="text-lg font-bold text-emerald-600">{formatCurrency(contract.athletePayout)}</div>
+                            <div className="text-xs text-muted">Your Payout</div>
+                          </div>
+                        </div>
+
+                        {/* Deliverables */}
+                        <div className="mt-4">
+                          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">Deliverables</h4>
+                          <ul className="mt-1.5 space-y-1">
+                            {contract.deliverables.map((d) => (
+                              <li key={d} className="flex items-center gap-1.5 text-sm">
+                                <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
+                                {d}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Signatures */}
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${contract.signedByAthlete ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                            {contract.signedByAthlete ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                            Athlete {contract.signedByAthlete ? "Signed" : "Pending"}
+                          </span>
+                          <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${contract.signedByBusiness ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                            {contract.signedByBusiness ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                            Business {contract.signedByBusiness ? "Signed" : "Pending"}
+                          </span>
+                          {contract.parentRequired && (
+                            <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${contract.signedByParent ? "bg-emerald-100 text-emerald-700" : "bg-violet-100 text-violet-700"}`}>
+                              {contract.signedByParent ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                              Parent {contract.signedByParent ? "Approved" : "Pending"}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Compliance Notes */}
+                        {contract.complianceNotes.length > 0 && (
+                          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                            <h4 className="text-xs font-semibold text-amber-700">Compliance Notes</h4>
+                            <ul className="mt-1 space-y-0.5">
+                              {contract.complianceNotes.map((note) => (
+                                <li key={note} className="text-xs text-amber-600">• {note}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Dates */}
+                        <div className="mt-4 flex items-center gap-4 text-xs text-muted">
+                          <span>Duration: {contract.duration}</span>
+                          <span>Start: {formatDate(contract.startDate)}</span>
+                          <span>End: {formatDate(contract.endDate)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

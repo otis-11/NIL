@@ -35,6 +35,8 @@ import {
   getLikelihoodLabel,
 } from "@/lib/matching";
 import { getMarketplaceStats } from "@/lib/activity";
+import { checkDealEligibility, filterOpportunitiesByLegal, getPlatformBehavior } from "@/lib/legal";
+import { isDealGatedByParent } from "@/lib/parent";
 
 const athlete = athletes[0]; // Maya Chen as demo
 const maxDistanceOptions = [3, 5, 10, 25, 50];
@@ -66,10 +68,22 @@ export default function AthleteDealsPage() {
     return results;
   }, [maxDistance, categoryFilter]);
 
-  const nearbyOpps = useMemo(
-    () => getMatchingOpportunities(athlete, opportunities, maxDistance),
-    [maxDistance]
+  const platformBehavior = useMemo(
+    () => getPlatformBehavior(athlete.state, athlete.isMinor, athlete.level === "high_school"),
+    []
   );
+
+  const parentGated = isDealGatedByParent(athlete);
+
+  const nearbyOpps = useMemo(() => {
+    const raw = getMatchingOpportunities(athlete, opportunities, maxDistance);
+    // Filter by legal engine — remove restricted categories, blocked states
+    return filterOpportunitiesByLegal(
+      athlete,
+      raw,
+      businesses.map((b) => ({ id: b.id, type: b.type, category: b.category }))
+    );
+  }, [maxDistance]);
 
   const stats = useMemo(() => getMarketplaceStats(athlete, maxDistance), [maxDistance]);
 
@@ -218,6 +232,48 @@ export default function AthleteDealsPage() {
         </div>
 
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          {/* Legal Compliance Banner */}
+          {platformBehavior.hsBlocked && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-5">
+              <h3 className="flex items-center gap-2 font-bold text-red-800">
+                <X className="h-5 w-5" />
+                HS NIL Not Available in {athlete.state}
+              </h3>
+              <p className="mt-1 text-sm text-red-700">
+                Your state does not currently allow high school athletes to participate in NIL activities. You&apos;ve been added to the waitlist and will be notified when this changes.
+              </p>
+            </div>
+          )}
+
+          {parentGated && !athlete.parentApproved && (
+            <div className="mb-6 rounded-xl border border-violet-200 bg-violet-50 p-5">
+              <h3 className="flex items-center gap-2 font-bold text-violet-800">
+                <Clock className="h-5 w-5" />
+                Parent Approval Required
+              </h3>
+              <p className="mt-1 text-sm text-violet-700">
+                As a minor in {athlete.state}, all deals require parent/guardian approval before they can proceed. Your parent will be notified when you accept a deal.
+              </p>
+            </div>
+          )}
+
+          {platformBehavior.behaviorChanges.length > 0 && !platformBehavior.hsBlocked && (
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <h4 className="flex items-center gap-2 text-sm font-bold text-amber-800">
+                <Zap className="h-4 w-4" />
+                {athlete.state} Legal Engine Active
+              </h4>
+              <ul className="mt-2 space-y-1">
+                {platformBehavior.behaviorChanges.map((change) => (
+                  <li key={change} className="flex items-start gap-1.5 text-xs text-amber-700">
+                    <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+                    {change}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Active Opportunities Banner */}
           {nearbyOpps.length > 0 && (
             <div className="mb-8">
@@ -307,6 +363,12 @@ export default function AthleteDealsPage() {
                     const outreach = showOutreach === match.businessId
                       ? generateOutreachDraft(athlete, match.business, match)
                       : null;
+                    const eligibility = checkDealEligibility(
+                      athlete,
+                      match.business,
+                      pkg?.type || "social_post",
+                      match.suggestedPriceRange.min
+                    );
 
                     return (
                       <div
@@ -392,6 +454,34 @@ export default function AthleteDealsPage() {
                               ))}
                             </div>
                           </div>
+
+                          {/* Legal Eligibility */}
+                          {!eligibility.eligible && (
+                            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
+                              <p className="text-xs font-semibold text-red-700">Deal Blocked:</p>
+                              <ul className="mt-1 space-y-0.5">
+                                {eligibility.blockers.map((b) => (
+                                  <li key={b} className="text-xs text-red-600">• {b}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {eligibility.eligible && eligibility.requiredBeforeProceeding.length > 0 && (
+                            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                              <p className="text-xs font-semibold text-amber-700">Required before deal:</p>
+                              <ul className="mt-1 space-y-0.5">
+                                {eligibility.requiredBeforeProceeding.map((a) => (
+                                  <li key={a.id} className="text-xs text-amber-600">• {a.title}: {a.description}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {eligibility.eligible && eligibility.requiredBeforeProceeding.length === 0 && (
+                            <div className="mt-3 flex items-center gap-1.5 text-xs text-emerald-600">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              State compliance check passed — ready to deal
+                            </div>
+                          )}
 
                           {/* Deal Recommendation */}
                           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -39,3 +39,31 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local secrets and generated artifacts
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.env
+.claude.local.md
+_claude.local.md
+.ai/context/
+.claude/settings.local.json
+.superpowers/
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.cache/
+.pytest_cache/
+*.log
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.gguf
+*.safetensors
